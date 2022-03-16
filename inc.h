@@ -11,5 +11,8 @@
 #include "votante.h"
 #include "candidato.h"
 
-
+struct _process_info
+{
+    pid_t *pid_Arr;
+};
 #endif
