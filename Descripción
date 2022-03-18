@@ -1,8 +1,0 @@
-Tenemos un main que crea procesos
-Estos procesos luchan por ser el candidato
-El primero que llegue es el candidato
-El resto vota al candidato almacenando el voto en un fichero ( semaforo)
-Cuando todos han votado ( lo comprueba el main cada ms ) se muestra si se acepta el voto o no.
-Se repite hasta que se mande la instrucción SIGINT. 
-
-Mas.

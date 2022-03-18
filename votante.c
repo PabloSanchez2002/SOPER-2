@@ -1,40 +1,52 @@
 #include "inc.h"
 
-void handler(int sig)
+void usr1_handler(int sig)
 {
-    printf("H");
-    return;
 }
+void fight_candidato()
+{
 
+    if (sem_trywait(sem) == 0)
+    {
+        // Hasta aquí bien bucle 1
+        soy_candidato();
+    }
+    else
+    {
+        // Hasta aquí bien bucle 1
+        sigsuspend(&oset);
+        votar();
+    }
+}
+void votar()
+{
+    sem_wait(sem_vot);
+    char ch;
+    int r = rand() % 2;
+    FILE *votos = fopen("votos", "ab");
+    if (!votos)
+    {
+        exit(EXIT_FAILURE);
+    }
+    if (r == 0)
+    {
+        ch = 'Y';
+    }
+    else
+    {
+        ch = 'N';
+    }
+    int bytes = fwrite(&ch, sizeof(char), sizeof(char), votos);
+    fclose(votos);
+    fflush(stdout);
+    sem_post(sem_vot);
+    main_votante();
+}
 void main_votante()
 {
-
-    struct sigaction act;
-    sigset_t set, oset;
-
-    act.sa_handler = handler;
-    sigemptyset(&(act.sa_mask));
-    sigaddset(&(act.sa_mask), SIGUSR2);
-    sigaddset(&(act.sa_mask), SIGINT);
-    act.sa_flags = 0;
-    fflush(stdout);
-    if (sigaction(SIGUSR1, &act, NULL) < 0)
-    {
-        perror(" sigaction ");
-        exit(EXIT_FAILURE);
-    }
-    fflush(stdout);
-
-    sigemptyset(&set);
-    sigaddset(&set, SIGUSR1);
-
-    if (sigprocmask(SIG_BLOCK, &set, &oset) < 0)
-    {
-        perror("sigprocmask");
-        exit(EXIT_FAILURE);
-    }
-    printf("AAAA");
-    fflush(stdout);
+    // Primer bucle hasta aquí bien.
     sigsuspend(&oset);
+    // Primer bucle hasta aquí bien.
+    fight_candidato();
     exit(EXIT_SUCCESS);
 }
