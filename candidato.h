@@ -3,6 +3,6 @@
 
 // extern int VARIABLES
 
-void soy_candidato();
+void soy_candidato(process_info pinf);
 
 #endif

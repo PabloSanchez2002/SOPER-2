@@ -1,25 +1,24 @@
 #include "inc.h"
+typedef struct _process_info process_info;
 
-void usr1_handler(int sig)
+// Se encarga de elegir al candidato y hace esperar al resto de procesos.
+void fight_candidato(process_info pinf)
 {
-}
-void fight_candidato()
-{
-
+    // El primero que llega entra y baja el semaforo volviendose el único candidato
     if (sem_trywait(sem) == 0)
     {
-        // Hasta aquí bien bucle 1
-        soy_candidato();
+        soy_candidato(pinf);
     }
     else
     {
-        // Hasta aquí bien bucle 1
+        // Los demás se bloquean a la espera de que el candidato les envie sigusr2
         sigsuspend(&oset);
-        votar();
+        votar(pinf);
     }
 }
-void votar()
+void votar(process_info pinf)
 {
+    int bytes = 0;
     sem_wait(sem_vot);
     char ch;
     int r = rand() % 2;
@@ -36,17 +35,37 @@ void votar()
     {
         ch = 'N';
     }
-    int bytes = fwrite(&ch, sizeof(char), sizeof(char), votos);
+    if ((bytes = fwrite(&ch, sizeof(char), sizeof(char), votos)) != sizeof(char)) kill(SIGINT, getppid());
     fclose(votos);
     fflush(stdout);
     sem_post(sem_vot);
-    main_votante();
+    sigsuspend(&oset);
+    fight_candidato(pinf);
 }
 void main_votante()
 {
-    // Primer bucle hasta aquí bien.
+    // Se bloquea el proceso hasta que se recibe la señal SIGUSR1
     sigsuspend(&oset);
-    // Primer bucle hasta aquí bien.
-    fight_candidato();
+    int bytes = 0;
+    // Se le la información de los procesos
+    process_info pinf;
+    pinf.pid_Arr = (pid_t *)malloc(sizeof(pid_t) * N_PROCESOS);
+    if (pinf.pid_Arr == NULL)
+        kill(SIGINT, getppid());
+    FILE *procesos = fopen("procesos.bin", "rb");
+
+    if (!procesos)
+    {
+        exit(EXIT_FAILURE);
+    }
+    // Se comprueba que se ha leido todo y sino se envia un kill al padre para que termine con la ejecución
+    // Como todas las operaciones son de lectura y ninguna de escritura, no hace falta un semaforo.
+    if ((bytes = fread(pinf.pid_Arr, sizeof(int), N_PROCESOS, procesos)) == N_PROCESOS * sizeof(int))
+    {
+        kill(SIGINT, getppid());
+    }
+    fclose(procesos);
+    // Se llama a la función para pelear por ser el candidato.
+    fight_candidato(pinf);
     exit(EXIT_SUCCESS);
 }

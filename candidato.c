@@ -1,55 +1,56 @@
 #include "inc.h"
 typedef struct _process_info process_info;
-void soy_candidato()
+void soy_candidato(process_info pinf)
 {
-    // HASTA AQUI BIEN
-    process_info pinf;
-    pinf.pid_Arr = (pid_t *)malloc(sizeof(pid_t) * N_PROCESOS);
+
+    // Reserva memoria para todos los votos posibles
     pinf.votos = (char *)malloc(sizeof(char) * N_PROCESOS);
+    if (!pinf.votos)
+        kill(SIGINT, getppid());
     int leidos;
+    // Para ver si es o no elegido
     int counterPos = 0;
     int counterNeg = 0;
-    FILE *procesos = fopen("procesos.bin", "rb");
 
-    if (!procesos)
-    {
-        exit(EXIT_FAILURE);
-    }
-
-    fread(pinf.pid_Arr, sizeof(int), N_PROCESOS, procesos);
-    fclose(procesos);
-    // Hasta aquí bien
-    sleep(1);
     while (1)
     {
-        counterPos = 0;
-        counterNeg = 0;
+        // Se crea el fichero, wb para que sea binario y se borre lo que anteriormente estuviera escrito
         FILE *votos = fopen("votos", "wb");
         if (!votos)
         {
             exit(EXIT_FAILURE);
         }
         fclose(votos);
-        // Hasta aquí bien
         for (int i = 0; i < N_PROCESOS; i++)
         {
             if (getpid() != pinf.pid_Arr[i])
             {
-                kill(pinf.pid_Arr[i], SIGUSR1);
+                kill(pinf.pid_Arr[i], SIGUSR2); // PARA NO TENER PROBLEMAS CON EL SIGUSR1 ENVIADO POR MAIN HEMOS DECIDIDO ENVIAR SIGUSR2
             }
         }
+
         while (1)
         {
+            // Baja el semaforo para asegurarse de que es el unico que lee y nadie escribe
             sem_wait(sem_vot);
             FILE *votos = fopen("votos", "rb");
             if (!votos)
             {
                 exit(EXIT_FAILURE);
             }
+            // Cambia la máscara para no recibir señales durante la lectura ya que podría dejar el archivo abierto si se reciviera sigint
+            if (sigprocmask(SIG_BLOCK, &set, &oset) < 0)
+            {
+                perror("sigprocmask");
+
+                exit(EXIT_FAILURE);
+            }
+            // Comprueba el número de votos escritos.
             if ((leidos = fread(pinf.votos, sizeof(char), N_PROCESOS - 1, votos)) == ((N_PROCESOS - 1)))
             {
-                fflush(stdout);
+
                 fclose(votos);
+                // Escritura del mensaje en cuestión
                 printf("Candidate %i => [ ", getpid());
                 for (int i = 0; i < N_PROCESOS - 1; i++)
                 {
@@ -71,16 +72,32 @@ void soy_candidato()
                 {
                     printf("] => Rejected\n");
                 }
+                // Se sube el semaforo que permite votar y además el de elección de candidato para la siguiente ronda
                 sem_post(sem_vot);
-                sleep(0.25);
                 sem_post(sem);
-                kill(getppid(), SIGUSR2);
-                main_votante();
-            }
-            fclose(votos);
 
+                for (int i = 0; i < N_PROCESOS; i++)
+                {
+                    if (getpid() != pinf.pid_Arr[i])
+                    {
+                        // Envia la señal a el resto de procesos para que vuelva a comenzar la siguiente ronda
+                        kill(pinf.pid_Arr[i], SIGUSR1);
+                    }
+                }
+                // Descanso de 250 ms
+                free(pinf.votos);
+                usleep(250000);
+                fight_candidato(pinf);
+            }
+            // Cierro la lectura, levanto el semaforo para poder escribir de nuevo votos y cambio la máscara para tratar señales que puedan llegarme.
+            fclose(votos);
             sem_post(sem_vot);
-            sleep(0.01);
+            if (sigprocmask(SIG_SETMASK, &nomask, NULL) < 0)
+            {
+                perror("sigprocmask");
+                exit(EXIT_FAILURE);
+            }
+            usleep(1000);
         }
     }
 }

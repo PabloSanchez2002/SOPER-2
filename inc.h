@@ -19,14 +19,15 @@ struct sigaction usr1_han;
 struct sigaction int_han;
 struct sigaction usr2_han;
 struct sigaction alarm_han;
-sigset_t set, oset;
+sigset_t set, oset, nomask;
 sem_t *sem;
 sem_t *sem_vot;
-sem_t *sem_print;
 float N_SECS;
 int N_PROCESOS;
 int FLAG;
 int CONTADOR;
+int MAIN_PID;
+int CANDIDATO_PID;
 
 struct _process_info
 {
